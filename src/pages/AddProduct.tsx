@@ -1,165 +1,315 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useProducts, ProductInsert } from "@/hooks/useProducts";
+import { useEffect } from "react";
+
+const formSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  category: z.string().min(1, "Categoria é obrigatória"),
+  cost_price: z.number().min(0, "Preço de custo deve ser positivo"),
+  sale_price: z.number().min(0, "Preço de venda deve ser positivo"),
+  stock: z.number().min(0, "Estoque deve ser positivo"),
+  unit_type: z.enum(["unit", "bulk"]),
+  unit_measure: z.string().min(1, "Unidade de medida é obrigatória"),
+  min_stock: z.number().min(0, "Estoque mínimo deve ser positivo"),
+});
 
 const AddProduct = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    name: "",
-    category: "",
-    costPrice: "",
-    salePrice: "",
-    stock: "",
+  const { createProduct } = useProducts();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      category: "",
+      cost_price: 0,
+      sale_price: 0,
+      stock: 0,
+      unit_type: "unit",
+      unit_measure: "un",
+      min_stock: 5,
+    },
   });
 
-  const profitMargin = formData.costPrice && formData.salePrice
-    ? (((parseFloat(formData.salePrice) - parseFloat(formData.costPrice)) / parseFloat(formData.costPrice)) * 100).toFixed(1)
-    : "0.0";
+  const unitType = form.watch("unit_type");
+  const costPrice = form.watch("cost_price");
+  const salePrice = form.watch("sale_price");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    toast({
-      title: "Produto adicionado!",
-      description: `${formData.name} foi cadastrado com sucesso.`,
-    });
-    
-    setTimeout(() => {
-      navigate("/products");
-    }, 1000);
-  };
+  const profitMargin = costPrice > 0 ? ((salePrice - costPrice) / costPrice) * 100 : 0;
 
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (unitType === "unit") {
+      form.setValue("unit_measure", "un");
+    } else {
+      form.setValue("unit_measure", "kg");
+    }
+  }, [unitType, form]);
+
+  const onSubmit = (data: z.infer<typeof formSchema>) => {
+    createProduct(data as ProductInsert);
+    navigate("/products");
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <Button
-        variant="ghost"
-        onClick={() => navigate("/products")}
-        className="gap-2"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Voltar
-      </Button>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/products")}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">
+            Novo Produto
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Cadastre um novo produto no estoque
+          </p>
+        </div>
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Novo Produto</CardTitle>
-          <CardDescription>
-            Cadastre um novo produto no estoque
-          </CardDescription>
+          <CardTitle>Informações do Produto</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome do Produto</Label>
-              <Input
-                id="name"
-                placeholder="Ex: Ração Premium 25kg"
-                value={formData.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                required
-              />
-            </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome do Produto</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Ração Premium 25kg" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="space-y-2">
-              <Label htmlFor="category">Categoria</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => handleChange("category", value)}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="alimentacao">Alimentação</SelectItem>
-                  <SelectItem value="medicamentos">Medicamentos</SelectItem>
-                  <SelectItem value="suplementos">Suplementos</SelectItem>
-                  <SelectItem value="equipamentos">Equipamentos</SelectItem>
-                  <SelectItem value="higiene">Higiene</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoria</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a categoria" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Alimentação">Alimentação</SelectItem>
+                          <SelectItem value="Medicamentos">Medicamentos</SelectItem>
+                          <SelectItem value="Suplementos">Suplementos</SelectItem>
+                          <SelectItem value="Equipamentos">Equipamentos</SelectItem>
+                          <SelectItem value="Outros">Outros</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="costPrice">Preço de Custo (R$)</Label>
-                <Input
-                  id="costPrice"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.costPrice}
-                  onChange={(e) => handleChange("costPrice", e.target.value)}
-                  required
+                <FormField
+                  control={form.control}
+                  name="unit_type"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Tipo de Venda</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex gap-4"
+                        >
+                          <FormItem className="flex items-center space-x-2 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="unit" />
+                            </FormControl>
+                            <FormLabel className="font-normal cursor-pointer">
+                              Unidade
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-2 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="bulk" />
+                            </FormControl>
+                            <FormLabel className="font-normal cursor-pointer">
+                              A Granel
+                            </FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {unitType === "bulk" && (
+                  <FormField
+                    control={form.control}
+                    name="unit_measure"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Unidade de Medida</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="kg">Quilograma (kg)</SelectItem>
+                            <SelectItem value="g">Grama (g)</SelectItem>
+                            <SelectItem value="L">Litro (L)</SelectItem>
+                            <SelectItem value="ml">Mililitro (ml)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="cost_price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preço de Custo (R$)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="sale_price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preço de Venda (R$)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantidade em Estoque</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step={unitType === "bulk" ? "0.001" : "1"}
+                          placeholder="0"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="min_stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estoque Mínimo (Alerta)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step={unitType === "bulk" ? "0.001" : "1"}
+                          placeholder="5"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="salePrice">Preço de Venda (R$)</Label>
-                <Input
-                  id="salePrice"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.salePrice}
-                  onChange={(e) => handleChange("salePrice", e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="stock">Quantidade em Estoque</Label>
-              <Input
-                id="stock"
-                type="number"
-                placeholder="0"
-                value={formData.stock}
-                onChange={(e) => handleChange("stock", e.target.value)}
-                required
-              />
-            </div>
-
-            {formData.costPrice && formData.salePrice && (
-              <Card className="bg-muted/30">
-                <CardContent className="pt-6">
+              {costPrice > 0 && salePrice > 0 && (
+                <div className="p-4 bg-muted/50 rounded-lg">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">
-                      Margem de Lucro
+                      Margem de Lucro:
                     </span>
-                    <span className="text-2xl font-bold text-success">
-                      {profitMargin}%
+                    <span
+                      className={`text-2xl font-bold ${
+                        profitMargin > 0 ? "text-success" : "text-destructive"
+                      }`}
+                    >
+                      {profitMargin.toFixed(1)}%
                     </span>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
 
-            <div className="flex gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/products")}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" className="flex-1">
-                Cadastrar Produto
-              </Button>
-            </div>
-          </form>
+              <div className="flex gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate("/products")}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Cadastrar Produto
+                </Button>
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
