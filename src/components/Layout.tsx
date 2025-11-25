@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, PlusCircle, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Package, PlusCircle, TrendingUp, ShoppingCart } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   const navItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/pdv", icon: ShoppingCart, label: "PDV" },
     { to: "/products", icon: Package, label: "Produtos" },
     { to: "/add-product", icon: PlusCircle, label: "Novo Produto" },
     { to: "/reports", icon: TrendingUp, label: "Relatórios" },
